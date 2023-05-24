@@ -1,0 +1,300 @@
+---
+name: $(SourceBranchName)_$(rev:rrr)
+trigger:
+  batch: true
+  branches:
+    include:
+      - '*'
+  paths:
+    exclude:
+      - images/
+      - pipelines/
+variables:
+  infra_config_path: 'AzureTerraform'
+  terraform_versions: '0.12.31 0.13.7'
+  tflint_versions: '0.21.0'
+  hash_algorithm: 'sha256'
+  hash_length: 20
+  old_config: ''
+stages:
+  - stage: Build
+    displayName: Build stage
+    jobs:
+      - job: Build
+        pool: HhpNonProdAgents
+        workspace:
+          clean: all
+        steps:
+          - checkout: self
+            clean: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              set -euo pipefail
+
+              if command -v sudo >/dev/null 2>&1; then
+                SUDO='sudo'
+                BINDIR="/usr/local/bin"
+              else
+                SUDO=''
+                BINDIR="$HOME/bin"
+              fi
+
+              [ ! -d "$BINDIR" ] && mkdir -p "$BINDIR"
+
+              echo "##vso[task.setvariable variable=SUDO]$SUDO"
+              echo "##vso[task.setvariable variable=BINDIR]$BINDIR"
+            displayName: Check if sudo is available
+            failOnStderr: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              # requires bash >=4.1 and zip utility installed
+              set -euo pipefail
+
+              function join { local IFS="$1"; shift; echo "$*"; }
+
+              function preparation {
+                local script="$1"
+                local -a modules
+
+                scriptName=$(basename "${script%.*}")
+                scriptDirectory="${script%/*}"
+                printf "'%s' - start processing..\n" "$scriptName"
+
+                # extract module names except 'PSDesiredStateConfiguration'
+                mapfile modules < <(grep -woP '^\s*(?!#)\s*Import-DscResource -ModuleName \K(?!PSDesiredStateConfiguration)\w+' "$script")
+                printf "'%s' - extracted modules - %s\n" "$scriptName" $(join , ${modules[@]})
+
+                # check if exist
+                for m in ${modules[@]};
+                do
+                  local f=0; for p in ${presentModules[@]}; do if [ $p == $m ]; then f=1; fi; done
+                  if [ $f == 0 ];
+                  then
+                    echo "##vso[task.logissue type=warning]'$m' is absent in the '$modulesFolder' folder for DSC script '$scriptName'. Please add it!"
+                    echo "##vso[task.logissue type=error]Module '$m' was NOT found!" #>&2
+                    exit 1
+                  fi
+                done
+
+                # create folders
+                local hash
+                local workingFolder="$scriptDirectory/temp_$scriptName"
+                if [ -d "$workingFolder" ]; then rm -rf "$workingFolder"; fi
+                mkdir "$workingFolder" && mv "$script" "$workingFolder"
+                for m in ${modules[@]}; do cp -r "$modulesFolder/$m" "$workingFolder"; done
+                cd "$workingFolder" && \
+                  find ./* -exec touch -t 201901010000 {} + && \
+                  hash=($(find ./* -type f -print0 | sort -z | xargs -0 ${HASH_ALGORITHM,,}sum | ${HASH_ALGORITHM,,}sum)) && \
+                  zip -qrX "../${scriptName}_${hash:0:$(hash_length)}.zip" ./* && \
+                  cd - > /dev/null
+                rm -rf "$workingFolder"
+                printf "'%s' - finished processing. %s content hash - %s.\n" "$scriptName" ${HASH_ALGORITHM^^} $hash
+              }
+
+              modulesFolder="modules/DSC"
+              scanFolder="modules/terraform/*/configuration"
+
+              bash --version | head -1
+
+              mapfile presentModules < <(find $modulesFolder -maxdepth 1 -mindepth 1 -type d -printf '%f\n' 2>/dev/null)
+              mapfile -t scripts < <(grep --include=\*.ps1 -rwlsP '^\s*(?!#)\s*Import-DscResource' $scanFolder)
+
+              i=0; declare -a pids=()
+              while [ $i -lt "${#scripts[@]}" ]
+              do
+                preparation "${scripts[$i]}" &
+                pids[${i}]=$!
+                true $(( i++ ))
+              done
+
+              RESULT=0;
+              if [ ${#pids[*]} -gt 0 ]; then for pid in ${pids[*]}; do wait $pid || RESULT=1; done; fi
+
+              if [ "$RESULT" == "1" ];
+              then
+                echo "##vso[task.logissue type=error]Some archive preparation job(s) exited with non-zero status code. Please check messages above for any errors."
+                exit 1
+              fi
+
+            displayName: PrepareDSCArchives
+            failOnStderr: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              set -euo pipefail
+
+              # sort versions so that new was on top
+              TERRAFORM_VERSIONS=$(printf '%s\n' $(echo $TERRAFORM_VERSIONS | xargs echo -n) | sort -rV | xargs)
+              echo "##vso[task.setvariable variable=TERRAFORM_VERSIONS]$TERRAFORM_VERSIONS"
+
+              # check if installed
+              present=$(terraform version 2>/dev/null | grep -Eo -m 1 '[0-9]+.[0-9]+.[0-9]+' || true)
+              if [ -n "${present}" ];
+              then
+                if [ -z "${TERRAFORM_VERSIONS##*$present*}" ];
+                then
+                  echo "Terraform version $present is already installed."
+                  terraform_path=$(which terraform)
+                  $SUDO ln -fs $terraform_path "$BINDIR/terraform_$present"
+                  TERRAFORM_VERSIONS=$(printf '%s\n' $(echo ${TERRAFORM_VERSIONS//$present/} | xargs echo -n) | xargs)
+                else
+                  echo "Terraform version $present is preinstalled on the build agent."
+                fi
+              fi
+
+              declare -a TERRAFORM_VERSIONS=($TERRAFORM_VERSIONS)
+              for version in ${TERRAFORM_VERSIONS[@]};
+              do
+                if [ ! -f "$BINDIR/terraform_${version}" ]; then
+                  echo "==> Installing terraform $version" \
+                    && curl -LOs "https://releases.hashicorp.com/terraform/${version}/terraform_${version}_linux_amd64.zip" \
+                    && unzip -qq "terraform_${version}_linux_amd64.zip" \
+                    && $SUDO mv terraform "$BINDIR/terraform_${version}" \
+                    && rm "terraform_${version}_linux_amd64.zip"
+                else
+                  echo "Terraform version $version is already exists on the build agent."
+                fi
+              done
+
+              echo -e "\nChecking if required versions were installed correctly:"
+              ls -lah $BINDIR/terraform*
+
+            displayName: TerraformInstall
+            failOnStderr: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              set -euo pipefail
+
+              # sort versions so that new was on top
+              TFLINT_VERSIONS=$(printf '%s\n' $(echo $TFLINT_VERSIONS | xargs echo -n) | sort -rV | xargs)
+              echo "##vso[task.setvariable variable=TFLINT_VERSIONS]$TFLINT_VERSIONS"
+
+              # check if installed
+              present=$(tflint --version 2>/dev/null | grep -Eo -m 1 '[0-9]+.[0-9]+.[0-9]+' || true)
+              if [ -n "${present}" ];
+              then
+                if [ -z "${TFLINT_VERSIONS##*$present*}" ];
+                then
+                  echo "TFLint version $present is already installed."
+                  tflint_path=$(which tflint)
+                  $SUDO ln -fs $tflint_path "$BINDIR/tflint_$present"
+                  TFLINT_VERSIONS=$(printf '%s\n' $(echo ${TFLINT_VERSIONS//$present/} | xargs echo -n) | xargs)
+                else
+                  echo "TFLint version $present is preinstalled on the build agent."
+                fi
+              fi
+
+              declare -a TFLINT_VERSIONS=($TFLINT_VERSIONS)
+              for version in ${TFLINT_VERSIONS[@]};
+              do
+                if [ ! -f "$BINDIR/tflint_${version}" ]; then
+                  echo "==> Installing TFLint $version" \
+                    && curl -LOs "https://github.com/terraform-linters/tflint/releases/download/v${version}/tflint_linux_amd64.zip" \
+                    && unzip -qq "tflint_linux_amd64.zip" \
+                    && $SUDO mv tflint "$BINDIR/tflint_${version}" \
+                    && rm "tflint_linux_amd64.zip"
+                else
+                  echo "TFLint version $version is already exists on the build agent."
+                fi
+              done
+
+              echo -e "\nChecking if required versions were installed correctly:"
+              ls -lah $BINDIR/tflint*
+
+            displayName: TFLintInstall
+            failOnStderr: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              set -euo pipefail
+
+              export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+              [ ! -d "${TF_PLUGIN_CACHE_DIR}" ] && mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+
+              # scan all folders with TF files in the $(infra_config_path) and run terraform init && terraform validate in each
+              mapfile -t infra_dirs < <(find $(infra_config_path) -not -path '*/\.*' -type f -name '*.tf' 2>/dev/null | sed -r 's|/[^/]+$||' | sort -u)
+              for config in "${infra_dirs[@]}";
+              do
+                len=70
+                left=$((($len - 13 - ${#config}) / 2))
+                printf "%0.s#" $(seq $len)  && echo ""
+                printf "%0.s#" $(seq $left) && \
+                  echo -en "\e[43;30m Processing $config \e[0m" && \
+                  printf "%0.s#" $(seq $(($len - 13 - ${#config} - $left))) && \
+                  echo ""
+                printf "%0.s#" $(seq $len)  && echo ""
+
+                declare -a TERRAFORM_VERSION=($TERRAFORM_VERSIONS)
+                declare -a TFLINT_VERSION=($TFLINT_VERSIONS)
+                if [[ -z "${OLD_CONFIG##*$config*}" && -n "${OLD_CONFIG}" ]];
+                then
+
+                  if [[ ${#TERRAFORM_VERSION[@]} == 2 ]];
+                  then
+                    terraform="$BINDIR/terraform_${TERRAFORM_VERSION[1]}"
+                  else
+                    terraform=$(which terraform)
+                  fi;
+
+                  if [[ ${#TFLINT_VERSION[@]} == 2 ]];
+                  then
+                    tflint="$BINDIR/tflint_${TFLINT_VERSION[1]}"
+                  else
+                    tflint=$(which tflint)
+                  fi
+
+                else
+                  terraform="$BINDIR/terraform_${TERRAFORM_VERSION[0]}";
+                  tflint="$BINDIR/tflint_${TFLINT_VERSION[0]}";
+                fi
+
+                $terraform --version && echo
+                $tflint --version && echo
+
+                cd "$config" && \
+                  rm -rf .terraform && \
+                  $terraform init -no-color -upgrade=true -backend=false && \
+                  $terraform validate && \
+                  { \
+                    echo "Starting format check in terraform files.." && \
+                    $terraform fmt -diff -list=true -write=true && \
+                    echo "Configuration is formatted correctly." || \
+                    { echo "##vso[task.logissue type=error]Configuration '$config' is NOT formatted correctly & below are the differences." && exit 1; }; \
+                  } && \
+                  { \
+                    echo "Starting TFLint check.." && \
+                    $tflint --module --config "${BUILD_SOURCESDIRECTORY}/.tflint.hcl" && \
+                    echo "TFLint found no violations." || \
+                    { echo "##vso[task.logissue type=error]Configuration '$config' failed TFLint check." && exit 1; }; \
+                  } || \
+                  break && \
+                  cd - > /dev/null
+              done
+
+            displayName: TerraformValidation
+            failOnStderr: true
+            env:
+              ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+
+          - task: CopyFiles@2
+            inputs:
+              targetFolder: $(Build.ArtifactStagingDirectory)
+              contents: |
+                **/*
+                !**/.*/**
+                !**/images/**
+                !**/modules/DSC/**
+                !**/pipelines/**
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'drop'
