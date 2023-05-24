@@ -1,0 +1,150 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "name": {
+      "type": "String",
+      "minLength": 4,
+      "maxLength": 50,
+      "metadata": {
+        "description": "Name of the resource"
+      }
+    },
+    "location": {
+      "type": "String",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources; takes its default from the Resource Group"
+      }
+    },
+    "plan_name": {
+      "type": "String",
+      "defaultValue": "free",
+      "allowedValues": [
+        "free",
+        "bronze",
+        "silver",
+        "gold",
+        "platinum",
+        "premier"
+      ],
+      "metadata": {
+        "description": "Plan name"
+      }
+    },
+    "plan_publisher": {
+      "type": "String",
+      "defaultValue": "sendgrid",
+      "allowedValues": [ "sendgrid" ],
+      "metadata": {
+        "description": "Publisher name"
+      }
+    },
+    "plan_product": {
+      "type": "String",
+      "defaultValue": "sendgrid_azure",
+      "allowedValues": [ "sendgrid_azure" ],
+      "metadata": {
+        "description": "Plan id"
+      }
+    },
+    "plan_promotion_code": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Promotion code"
+      }
+    },
+    "password": {
+      "type": "SecureString",
+      "minLength": 8,
+      "maxLength": 50,
+      "metadata": {
+        "description": "The SendGrid account password"
+      }
+    },
+    "email": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "The user's email address"
+      }
+    },
+    "firstName": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "The user's first name"
+      }
+    },
+    "lastName": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "The user's last name"
+      }
+    },
+    "company": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Company name"
+      }
+    },
+    "website": {
+      "type": "String",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Website url"
+      }
+    },
+    "acceptMarketingEmails": {
+      "type": "Bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "True if you want to accept Marketing Emails"
+      }
+    },
+    "tags": {
+      "type": "Object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags for the resources"
+      }
+    }
+  },
+  "resources": [
+    {
+      "apiVersion": "2015-01-01",
+      "name": "[parameters('name')]",
+      "type": "Sendgrid.Email/accounts",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "plan": {
+        "name": "[parameters('plan_name')]",
+        "publisher": "[parameters('plan_publisher')]",
+        "product": "[parameters('plan_product')]",
+        "promotionCode": "[parameters('plan_promotion_code')]"
+      },
+      "properties": {
+        "password": "[parameters('password')]",
+        "acceptMarketingEmails": "[parameters('acceptMarketingEmails')]",
+        "email": "[parameters('email')]",
+        "firstName": "[parameters('firstName')]",
+        "lastName": "[parameters('lastName')]",
+        "company": "[parameters('company')]",
+        "website": "[parameters('website')]"
+      }
+    }
+  ],
+  "outputs": {
+    "server_name": {
+      "type": "String",
+      "value": "[reference(resourceId('Sendgrid.Email/accounts', parameters('name'))).smtpServer]"
+    },
+    "username": {
+      "type": "String",
+      "value": "[reference(resourceId('Sendgrid.Email/accounts', parameters('name'))).username]"
+    }
+  }
+}

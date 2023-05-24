@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "automationAccount": {
+      "type": "String"
+    },
+    "workerGroupName": {
+      "type": "String"
+    },
+    "virtualMachineId": {
+      "type": "String"
+    }
+  },
+  "resources": [
+    {
+      "name": "[concat(parameters('automationAccount'),'/',parameters('workerGroupName'),'/',guid(parameters('virtualMachineId')))]",
+      "type": "Microsoft.Automation/automationAccounts/hybridRunbookWorkerGroups/hybridRunbookWorkers",
+      "apiVersion": "2021-06-22",
+      "properties": {
+        "vmResourceId": "[parameters('virtualMachineId')]"
+      }
+    }
+  ]
+}

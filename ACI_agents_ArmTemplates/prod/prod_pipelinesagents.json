@@ -1,0 +1,128 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerGroups_prodpipelinesagent_aci_name": {
+            "defaultValue": "prodpipelinesagent-aci",
+            "type": "string" },
+        "virtualNetworks_prodpipelinesagent_vnet_externalid": {
+            "defaultValue": "/subscriptions/0f67b021-5b3d-4f38-973a-8bcddde64f72/resourceGroups/prodpipelinesagent-rg/providers/Microsoft.Network/virtualNetworks/prodpipelinesagent-vnet",
+            "type": "string" },
+        "AZP_TOKEN" :{
+                "type": "securestring" },
+        "registrypassword" :{
+                "type": "securestring"
+            }  
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[parameters('containerGroups_prodpipelinesagent_aci_name')]",
+            "location": "northcentralus",
+            "tags": {
+                "resource": "container group"
+            },
+            "properties": {
+                "sku": "Standard",
+                "containers": [
+                    {
+                        "name": "pipelinesagent0",
+                        "properties": {
+                            "image": "prodmxhhptfacr.azurecr.io/iac/azurepipelinesagent:dr_sql_restore_0.1.001",
+                            "ports": [
+                                {
+                                    "protocol": "TCP",
+                                    "port": 80                                }
+                            ],
+                            "environmentVariables": [
+                                {
+                                    "name": "AZP_AGENT_NAME",
+                                    "value": "pipelinesagent0"                                },
+                                {
+                                    "name": "AZP_POOL",
+                                    "value": "HhpProduction"                             },
+                                {
+                                    "name": "AZP_URL",
+                                    "value": "https://dev.azure.com/MatrixCareHHP/"                                },
+                                {
+                                    "name": "AZP_TOKEN",
+                                    "secureValue": "[parameters('AZP_TOKEN')]"                               }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                },
+                                "limits": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "pipelinesagent1",
+                        "properties": {
+                            "image": "prodmxhhptfacr.azurecr.io/iac/azurepipelinesagent:dr_sql_restore_0.1.001",
+                            "ports": [
+                                {
+                                    "protocol": "TCP",
+                                    "port": 443                                }
+                            ],
+                            "environmentVariables": [
+                                {
+                                    "name": "AZP_AGENT_NAME",
+                                    "value": "pipelinesagent1"                                },
+                                {
+                                    "name": "AZP_POOL",
+                                    "value": "HhpProduction"                                },
+                                {
+                                    "name": "AZP_URL",
+                                    "value": "https://dev.azure.com/MatrixCareHHP/"                                },
+                                {
+                                    "name": "AZP_TOKEN",
+                                    "secureValue": "[parameters('AZP_TOKEN')]"                              }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                },
+                                "limits": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                }
+                            }
+                        }
+                    }
+                ],
+                "initContainers": [],
+                "imageRegistryCredentials": [
+                    {
+                        "server": "prodmxhhptfacr.azurecr.io",
+                        "username": "prodmxhhptfacr",
+                        "password": "[parameters('registrypassword')]"             
+                    }
+                ],
+                "restartPolicy": "Always",
+                "ipAddress": {
+                    "ports": [
+                        {
+                            "protocol": "TCP",
+                            "port": 80                        },
+                        {
+                            "protocol": "TCP",
+                            "port": 443                        }
+                    ],
+                    "ip": "10.105.72.38",
+                    "type": "Private"
+                },
+                "osType": "Linux",
+                "subnetIds": [
+                    {
+                        "id": "[concat(parameters('virtualNetworks_prodpipelinesagent_vnet_externalid'), '/subnets/pipelinesagentaci-subnet')]",
+                        "name": "pipelinesagentaci-subnet"
+                    }
+                ]
+            }
+        }
+    ]
+}

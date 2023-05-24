@@ -1,0 +1,127 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerGroups_nonprodpipelinesagent_aci_2_name": {
+            "defaultValue": "nonprodpipelinesagent-aci",
+            "type": "String"        },
+        "virtualNetworks_nonprodpipelinesagent_vnet_externalid": {
+            "defaultValue": "/subscriptions/ed7795be-8352-41a1-beb8-548c490c07c7/resourceGroups/nonprodpipelinesagent-rg/providers/Microsoft.Network/virtualNetworks/nonprodpipelinesagent-vnet",
+            "type": "String"        },
+        "AZP_TOKEN" :{
+            "type": "securestring"
+        },
+        "registrypassword" :{
+            "type": "secureString"
+        }      
+        
+        },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2022-10-01-preview",
+            "name": "[parameters('containerGroups_nonprodpipelinesagent_aci_2_name')]",
+            "location": "eastus2",
+            "tags": {
+                "resource": "container group"            },
+            "properties": {
+                "sku": "Standard",
+                "containers": [
+                    {
+                        "name": "pipelinesagent2",
+                        "properties": {
+                            "image": "prodmxhhptfacr.azurecr.io/iac/azurepipelinesagent:dr_sql_restore_0.1.001",
+                            "ports": [
+                                {
+                                    "protocol": "TCP",
+                                    "port": 80                                }
+                            ],
+                            "environmentVariables": [
+                                {
+                                    "name": "AZP_AGENT_NAME",
+                                    "value": "pipelinesagent2"                                },
+                                {
+                                    "name": "AZP_POOL",
+                                    "value": "HhpNonProdAgents"                                },
+                                {
+                                    "name": "AZP_URL",
+                                    "value": "https://dev.azure.com/MatrixCareHHP/"                                },
+                                {
+                                    "name": "AZP_TOKEN",
+                                    "secureValue": "[parameters('AZP_TOKEN')]"                               }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                },
+                                "limits": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                }
+                            }
+                        }
+                    },
+                    {
+                        "name": "pipelinesagent3",
+                        "properties": {
+                            "image": "prodmxhhptfacr.azurecr.io/iac/azurepipelinesagent:dr_sql_restore_0.1.001",
+                            "ports": [
+                                {
+                                    "protocol": "TCP",
+                                    "port": 443                                }
+                            ],
+                            "environmentVariables": [
+                                {
+                                    "name": "AZP_AGENT_NAME",
+                                    "value": "pipelinesagent3"                                },
+                                {
+                                    "name": "AZP_POOL",
+                                    "value": "HhpNonProdAgents"                                },
+                                {
+                                    "name": "AZP_URL",
+                                    "value": "https://dev.azure.com/MatrixCareHHP/"                                },
+                                {
+                                    "name": "AZP_TOKEN",
+                                    "secureValue": "[parameters('AZP_TOKEN')]"                              }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                },
+                                "limits": {
+                                    "memoryInGB": 1.5,
+                                    "cpu": 1                                }
+                            }
+                        }
+                    }
+                ],
+                "initContainers": [],
+                "imageRegistryCredentials": [
+                    {
+                        "server": "prodmxhhptfacr.azurecr.io",
+                        "username": "prodmxhhptfacr",
+                        "password": "[parameters('registrypassword')]"             
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "ipAddress": {
+                    "ports": [
+                        {
+                            "protocol": "TCP",
+                            "port": 80                        },
+                        {
+                            "protocol": "TCP",
+                            "port": 443                        }
+                    ],
+                    "ip": "10.105.72.9",
+                    "type": "Private"                },
+                "osType": "Linux",
+                "subnetIds": [
+                    {
+                        "id": "[concat(parameters('virtualNetworks_nonprodpipelinesagent_vnet_externalid'), '/subnets/pipelinesagentaci-subnet')]",
+                        "name": "pipelinesagentaci-subnet"                    }
+                ]
+            }
+        }
+    ]
+}

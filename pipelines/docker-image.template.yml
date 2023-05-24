@@ -1,0 +1,123 @@
+---
+parameters:
+  - name: acrServiceConnection
+    displayName: Container registry service connection name
+    type: string
+  - name: artifactName
+    displayName: Artifact name
+    type: string
+    default: drop
+  - name: dockerfileFolder
+    displayName: Relative folder path where Dockerfile is present (without slashes on both sides)
+    type: string
+  - name: dockerImageName
+    displayName: Name of the repository in container registry
+    type: string
+  - name: poolName
+    displayName: Pool image
+    type: string
+    default: ubuntu-latest
+  - name: releaseBranch
+    displayName: Branch name which would be omited in tag
+    type: string
+    default: master
+stages:
+  - stage: buildImage
+    displayName: Build
+    jobs:
+      - job: dockerImage
+        displayName: Pipelines Agent Docker Image
+        pool:
+          vmImage: ${{ parameters.poolName }}
+        workspace:
+          clean: all
+        steps:
+          - bash: |
+              if [[ $BUILD_SOURCEBRANCHNAME == "${{ parameters.releaseBranch }}" ]]; then
+                imageTag=${BUILD_BUILDNUMBER##*_}
+              else
+                imageTag=$BUILD_BUILDNUMBER
+              fi
+              echo "##vso[task.setvariable variable=imageTag]$imageTag"
+              echo "##vso[task.setvariable variable=date]$(date --rfc-3339=seconds)"
+              echo "##vso[task.setvariable variable=image.value]${{ parameters.dockerImageName }}:$imageTag"
+            displayName: Calculate image tag
+            name: calculateImageTag
+
+          - task: Docker@2
+            displayName: Login to ACR
+            inputs:
+              command: login
+              containerRegistry: ${{ parameters.acrServiceConnection }}
+
+          - task: Docker@2
+            displayName: Build image
+            env:
+              DOCKER_BUILDKIT: 1
+            inputs:
+              command: build
+              repository: ${{ parameters.dockerImageName }}
+              Dockerfile: '${{ parameters.dockerfileFolder }}/Dockerfile'
+              tags: |
+                $(imageTag)
+                latest
+              arguments: >
+                --label org.opencontainers.image.created="$(date)"
+              addPipelineData: true
+
+          - bash: |
+              #!/usr/bin/env bash
+
+              set -euo pipefail
+
+              TRIVY_VERSION=$(curl --silent "https://api.github.com/repos/aquasecurity/trivy/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+              curl -Ls "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar zx --wildcards '*trivy'
+
+              echo "Trivy version is ${TRIVY_VERSION}"
+              image=$(docker images -f "reference=*/${{ parameters.dockerImageName }}:$(imageTag)" --format '{{.Repository}}:{{.Tag}}')
+              ./trivy image --exit-code 1 --no-progress -severity HIGH,CRITICAL --ignore-unfixed "$image"
+
+              echo "##vso[task.setvariable variable=fullImage;]$image"
+            displayName: Scan image
+            name: scanImage
+
+          - task: Docker@2
+            displayName: 'Push image'
+            inputs:
+              command: push
+              repository: ${{ parameters.dockerImageName }}
+              ${{ if ne(parameters.releaseBranch, variables['Build.SourceBranchName']) }}:
+                tags: |
+                  $(imageTag)
+              ${{ if eq(parameters.releaseBranch, variables['Build.SourceBranchName']) }}:
+                tags: |
+                  $(imageTag)
+                  latest
+
+          - task: Docker@2
+            displayName: Logout of ACR
+            inputs:
+              command: logout
+              containerRegistry: ${{ parameters.acrServiceConnection }}
+
+          - task: CopyFiles@2
+            displayName: Copy artifacts
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)/${{ parameters.dockerfileFolder }}'
+              contents: '*.json'
+              targetFolder: $(Build.ArtifactStagingDirectory)
+              cleanTargetFolder: true
+
+          - task: FileTransform@1
+            displayName: Transform ARM configuration
+            inputs:
+              folderPath: $(Build.ArtifactStagingDirectory)
+              fileType: json
+              targetFiles: '*.parameters.json'
+              continueOnError: true
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish artifacts
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)
+              artifactName: ${{ parameters.artifactName }}

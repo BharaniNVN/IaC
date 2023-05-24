@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      
+      "AZP_TOKEN": {
+        "reference": {
+          "keyVault": {
+            "id": "/subscriptions/ed7795be-8352-41a1-beb8-548c490c07c7/resourceGroups/NonprodTerraform-rg/providers/Microsoft.KeyVault/vaults/NonprodTerraformKv"
+          },
+          "secretName": "pipelinesagentspat"
+        }
+      },
+      "registrypassword": {
+        "reference": {
+          "keyVault": {
+            "id": "/subscriptions/ed7795be-8352-41a1-beb8-548c490c07c7/resourceGroups/NonprodTerraform-rg/providers/Microsoft.KeyVault/vaults/NonprodTerraformKv"
+          },
+          "secretName": "imageregistrypassword"
+        }
+      }
+    
+    }
+  }

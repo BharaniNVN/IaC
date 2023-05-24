@@ -1,0 +1,26 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "type": "String"
+        },
+        "fileShareName": {
+            "type": "String"
+        }
+    },
+    "variables": {
+        "fileShareName": "[split(parameters('fileShareName'),',')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+            "name": "[concat(parameters('storageAccountName'), '/default/', variables('fileShareName')[copyIndex()])]",
+            "apiVersion": "2019-04-01",
+            "copy": {
+                "name": "storagecopy",
+                "count": "[length(variables('fileShareName'))]"
+            }
+        }
+    ]
+}

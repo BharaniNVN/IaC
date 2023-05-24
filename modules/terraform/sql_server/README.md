@@ -1,0 +1,7 @@
+# SQL Server module
+The SQL Server module that allows to deploy a SQL virtual machine preconfigured for MatrixCare's environments.
+
+## Hybrid worker support
+This is the original module that was used initially by MatrixCare's infrastructure team. While working on adding the ability to perform automated SQL database restores for DR procedure it turned out, that due to several reasons it will be difficult and time consuming to add this functionality to the main SQL Server module. That's because not only DR configs contain SQL virtual machines. To ensure the update won't break any of the existing environments we would have to test **ALL** SQL Servers in **ALL** environments before closing [PR 27342](https://dev.azure.com/MatrixCareHHP/HH/_git/iac/pullrequest/27342). Module versioning could be implemented to avoid this situation, but again, it would require too much time to implement it at this point.
+
+Therefore it was decided that the quickest and safest approach will be to copy/fork the SQL Server module, implement Hybrid Workers in the fork and make DR configs use the forked module. All other SQL virtual machines will remain intact. This approach of course has a lot of downsides, but the code can be refactored later when there will be more time for such activities.

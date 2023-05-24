@@ -1,0 +1,113 @@
+---
+parameters:
+  - name: aciContainerNamePrefix
+    displayName: Container name prefix
+    type: string
+    default: pipelinesagent
+  - name: artifactName
+    displayName: Artifact name
+    type: string
+    default: drop
+  - name: azureDevOpsTokenSecretName
+    displayName: Name of the Azure Key Vault secret holding Azure DevOps token value
+    type: string
+    default: AzureDevOpsAgentJoinToken
+  - name: azureContainerRegistryClientIdSecretName
+    displayName: Name of the Azure Key Vault secret holding client Id used to connect to container registry
+    type: string
+    default: ACRAppClientId
+  - name: azureContainerRegistryFQDN
+    displayName: Container registry FQDN
+    type: string
+  - name: azureContainerRegistryPasswordSecretName
+    displayName: Name of the Azure Key Vault secret holding client secret used to connect to container registry
+    type: string
+    default: ACRAppClientSecret
+  - name: environments
+    displayName: List of objects holding environment configuration parameters
+    type: object
+    default: {}
+  - name: poolName
+    displayName: Pool image
+    type: string
+    default: ubuntu-latest
+  - name: subnetObjectSecretName
+    displayName: Name of the Azure Key Vault secret holding subnet object to be used by Azure Container Instance
+    type: string
+    default: PipelinesAgentSubnetResource
+  - name: templateFileName
+    displayName: Name of template file
+    type: string
+    default: aci.json
+  - name: templateParametersFileName
+    displayName: Name of template parameters file
+    type: string
+    default: aci.parameters.json
+stages:
+  - ${{ each environment in parameters.environments }}:
+      - stage: ${{ environment.name }}
+        displayName: Deploy ${{ environment.name }}
+        jobs:
+          - deployment:
+            displayName: Deploy ${{ environment.name }}
+            pool:
+              vmImage: ${{ parameters.poolName }}
+            variables:
+              azureDevOpsPoolName.value: ${{ environment.azureDevOpsPoolName }}
+              azureDevOpsTokenSecretName.value: ${{ parameters.azureDevOpsTokenSecretName }}
+              azureDevOpsUrl.value: $(System.CollectionUri)
+              containerCount.value: ${{ environment.aciContainerCount }}
+              containerNamePrefix.value: ${{ parameters.aciContainerNamePrefix }}
+              containerRegistryAccountSecretName.value: ${{ parameters.azureContainerRegistryClientIdSecretName }}
+              containerRegistryFQDN.value: ${{ parameters.azureContainerRegistryFQDN }}
+              containerRegistryPasswordSecretName.value: ${{ parameters.azureContainerRegistryPasswordSecretName }}
+              cpuCores.value: ${{ environment.aciCPUCores }}
+              cpuCoresLimit.value: ${{ environment.aciCPUCoresLimit }}
+              dnsServers.value: ${{ environment.dnsServers }}
+              keyVaultName.value: ${{ environment.azureKeyVaultName }}
+              keyVaultResourceGroupName.value: ${{ environment.azureKeyVaultResourceGroupName }}
+              memoryInGb.value: ${{ environment.aciMemoryInGb }}
+              memoryInGbLimit.value: ${{ environment.aciMemoryInGbLimit }}
+              name.value: ${{ lower(environment.name) }}pipelinesagent-aci
+              resourceGroup: ${{ lower(environment.name) }}pipelinesagent-rg
+              subnetObjectSecretName.value: ${{ parameters.subnetObjectSecretName }}
+            environment: Azure Pipelines Agent (${{ environment.name }})
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - task: FileTransform@1
+                      displayName: Transform ARM configuration
+                      inputs:
+                        folderPath: $(Agent.BuildDirectory)/${{ parameters.artifactName }}
+                        fileType: json
+                        targetFiles: '*.parameters.json'
+
+                    - task: PublishPipelineArtifact@1
+                      condition: eq(variables['System.Debug'], 'true')
+                      displayName: Publish artifact for debug
+                      inputs:
+                        targetPath: $(Agent.BuildDirectory)/${{ parameters.artifactName }}
+                        artifactName: ${{ lower(environment.name) }}
+
+                    - task: AzureCLI@2
+                      displayName: Deploy ACI
+                      inputs:
+                        azureSubscription: ${{ environment.armServiceConnection }}
+                        scriptType: pscore
+                        powerShellErrorActionPreference: Continue
+                        scriptLocation: inlineScript
+                        inlineScript: |
+                          # https://docs.microsoft.com/bs-latn-ba/azure/container-instances/container-instances-update#properties-that-require-container-delete
+                          $c=$(az container show -n $(name.value) -g $(resourceGroup) --query containers 2> $null | ConvertFrom-Json)
+                          if ($c) {
+                            if ($c.Count -ne $(containerCount.value) -or $c[0].resources.requests.cpu -ne $(cpuCores.value) -or $c[0].resources.requests.memoryInGb -ne $(memoryInGb.value)) {
+                              Write-Output "Stopping container group '$(name.value)' as it needs to be deleted to update the required properties"
+                              az container stop -n $(name.value) -g $(resourceGroup)
+                              Write-Output "Removing container group '$(name.value)'"
+                              az container delete -n $(name.value) -g $(resourceGroup) -y --query provisioningState
+                            }
+                          }
+                          Set-Location -Path $(Join-Path "$(Agent.BuildDirectory)" "${{ parameters.artifactName }}")
+                          Write-Output "Creating/updating container instance '$(name.value)' deployment"
+                          az deployment group create --resource-group $(resourceGroup) --template-file '${{ parameters.templateFileName }}' --parameters '@${{ parameters.templateParametersFileName }}' --query properties.provisioningState

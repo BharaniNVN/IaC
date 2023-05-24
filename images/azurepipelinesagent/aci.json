@@ -1,0 +1,394 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "azureDevOpsPoolName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the agent pool which newly created agents should join."
+      },
+      "defaultValue": "Default"
+    },
+    "azureDevOpsTokenSecretName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Key Vault secret holding Azure DevOps token value."
+      }
+    },
+    "azureDevOpsUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "The URL of the Azure DevOps or Azure DevOps Server instance."
+      }
+    },
+    "containerCount": {
+      "type": "string",
+      "metadata": {
+        "description": "Number of containers to deploy."
+      },
+      "defaultValue": "2"
+    },
+    "containerNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Prefix for the container name."
+      },
+      "defaultValue": "agent"
+    },
+    "containerRegistryAccountSecretName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Key Vault secret holding client Id used to connect to container registry."
+      }
+    },
+    "containerRegistryFQDN": {
+      "type": "string",
+      "metadata": {
+        "description": "The Docker image registry server without a protocol such as 'http' and 'https'."
+      }
+    },
+    "containerRegistryPasswordSecretName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Name of the Azure Key Vault secret holding client secret used to connect to container registry"
+      }
+    },
+    "cpuCores": {
+      "type": "string",
+      "metadata": {
+        "description": "The number of CPU cores to allocate to one container. Must be an integer."
+      },
+      "defaultValue": "0.2"
+    },
+    "cpuCoresLimit": {
+      "type": "string",
+      "metadata": {
+        "description": "The maximum number of CPU cores to allocate to one container. Must be an integer."
+      },
+      "defaultValue": "0.4"
+    },
+    "dnsServers": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Comma separated list of DNS servers in double quotes."
+      }
+    },
+    "image": {
+      "type": "string",
+      "metadata": {
+        "description": "Container image to deploy. Should be of the form accountName/imagename:tag for images stored in Docker Hub or a fully qualified URI for a private registry like the Azure Container Registry."
+      },
+      "defaultValue": "iac/azuredevopsagent:latest"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Azure Key Vault that contains the secrets."
+      }
+    },
+    "keyVaultResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the resource group that contains the Azure Key Vault."
+      }
+    },
+    "keyVaultSubscription": {
+      "type": "string",
+      "defaultValue": "[subscription().subscriptionId]",
+      "metadata": {
+        "description": "The id of the subscription that contains the Azure Key Vault."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "The resource location."
+      }
+    },
+    "memoryInGb": {
+      "type": "string",
+      "metadata": {
+        "description": "The amount of memory to allocate to one container in gigabytes."
+      },
+      "defaultValue": "0.2"
+    },
+    "memoryInGbLimit": {
+      "type": "string",
+      "metadata": {
+        "description": "The maximum amount of memory to allocate to one container in gigabytes."
+      },
+      "defaultValue": "0.4"
+    },
+    "name": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the container group."
+      },
+      "defaultValue": "azuredevopsagent-aci"
+    },
+    "restartPolicy": {
+      "type": "string",
+      "defaultValue": "Always",
+      "metadata": {
+        "description": "Restart policy for all containers within the container group."
+      },
+      "allowedValues": [ "Never", "Always", "OnFailure" ]
+    },
+    "subnetObjectSecretName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Key Vault secret holding subnet object to be used by Azure Container Instance."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags to organize Azure resources."
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "defaultValue": "[utcNow()]",
+      "metadata": {
+        "description": "Timestamp to be added to the deployment name."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2021-04-01",
+      "name": "[format('ContainerInstance-{0}', parameters('timestamp'))]",
+      "properties": {
+        "mode": "Incremental",
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {
+            "azureDevOpsPoolName": {
+              "type": "string"
+            },
+            "azureDevOpsToken": {
+              "type": "securestring"
+            },
+            "azureDevOpsUrl": {
+              "type": "string"
+            },
+            "containerCount": {
+              "type": "string"
+            },
+            "containerNamePrefix": {
+              "type": "string"
+            },
+            "containerRegistryAccount": {
+              "type": "string"
+            },
+            "containerRegistryFQDN": {
+              "type": "string"
+            },
+            "containerRegistryPassword": {
+              "type": "securestring"
+            },
+            "cpuCores": {
+              "type": "string"
+            },
+            "cpuCoresLimit": {
+              "type": "string"
+            },
+            "dnsServers": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "memoryInGb": {
+              "type": "string"
+            },
+            "memoryInGbLimit": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "restartPolicy": {
+              "type": "string"
+            },
+            "subnetObject": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            }
+          },
+          "variables": {
+            "containerCount": "[int(parameters('containerCount'))]",
+            "cpuCores": "[float(parameters('cpuCores'))]",
+            "cpuCoresLimit": "[float(parameters('cpuCoresLimit'))]",
+            "image": "[concat(parameters('containerRegistryFQDN'), '/', parameters('image'))]",
+            "memoryInGb": "[float(parameters('memoryInGb'))]",
+            "memoryInGbLimit": "[float(parameters('memoryInGbLimit'))]",
+            "subnetId": "[json(parameters('subnetObject')).id]",
+            "subnetName": "[json(parameters('subnetObject')).name]",
+            "tags": "[union(parameters('tags'), json('{\"resource\": \"container group\"}'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerInstance/containerGroups",
+              "name": "[parameters('name')]",
+              "apiVersion": "2021-10-01",
+              "location": "[parameters('location')]",
+              "tags": "[variables('tags')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "containers",
+                    "count": "[variables('containerCount')]",
+                    "input": {
+                      "name": "[concat(parameters('containerNamePrefix'), copyIndex('containers'))]",
+                      "properties": {
+                        "image": "[variables('image')]",
+                        "resources": {
+                          "requests": {
+                            "memoryInGB": "[variables('memoryInGb')]",
+                            "cpu": "[variables('cpuCores')]"
+                          },
+                          "limits": {
+                            "memoryInGB": "[variables('memoryInGbLimit')]",
+                            "cpu": "[variables('cpuCoresLimit')]"
+                          }
+                        },
+                        "environmentVariables": [
+                          {
+                            "name": "AZP_AGENT_NAME",
+                            "value": "[concat(parameters('containerNamePrefix'), copyIndex('containers'))]"
+                          },
+                          {
+                            "name": "AZP_POOL",
+                            "value": "[parameters('azureDevOpsPoolName')]"
+                          },
+                          {
+                            "name": "AZP_TOKEN",
+                            "secureValue": "[parameters('azureDevOpsToken')]"
+                          },
+                          {
+                            "name": "AZP_URL",
+                            "value": "[parameters('azureDevOpsUrl')]"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "subnetIds": [
+                  {
+                    "id": "[variables('subnetId')]",
+                    "name": "[variables('subnetName')]"
+                  }
+                ],
+                "dnsConfig": "[if(equals(parameters('dnsServers'), ''), json('null'), json(concat('{\"nameServers\":[',parameters('dnsServers'),']}')))]",
+                "imageRegistryCredentials": [
+                  {
+                    "server": "[parameters('containerRegistryFQDN')]",
+                    "username": "[parameters('containerRegistryAccount')]",
+                    "password": "[parameters('containerRegistryPassword')]"
+                  }
+                ],
+                "restartPolicy": "[parameters('restartPolicy')]",
+                "osType": "Linux"
+              }
+            }
+          ]
+        },
+        "parameters": {
+          "azureDevOpsPoolName": {
+            "value": "[parameters('azureDevOpsPoolName')]"
+          },
+          "azureDevOpsToken": {
+            "reference": {
+              "keyVault": {
+                "id": "[resourceId(parameters('keyVaultSubscription'), parameters('keyVaultResourceGroupName'), 'Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              },
+              "secretName": "[parameters('azureDevOpsTokenSecretName')]"
+            }
+          },
+          "azureDevOpsUrl": {
+            "value": "[parameters('azureDevOpsUrl')]"
+          },
+          "containerCount": {
+            "value": "[parameters('containerCount')]"
+          },
+          "containerNamePrefix": {
+            "value": "[parameters('containerNamePrefix')]"
+          },
+          "containerRegistryAccount": {
+            "reference": {
+              "keyVault": {
+                "id": "[resourceId(parameters('keyVaultSubscription'), parameters('keyVaultResourceGroupName'), 'Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              },
+              "secretName": "[parameters('containerRegistryAccountSecretName')]"
+            }
+          },
+          "containerRegistryFQDN": {
+            "value": "[parameters('containerRegistryFQDN')]"
+          },
+          "containerRegistryPassword": {
+            "reference": {
+              "keyVault": {
+                "id": "[resourceId(parameters('keyVaultSubscription'), parameters('keyVaultResourceGroupName'), 'Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              },
+              "secretName": "[parameters('containerRegistryPasswordSecretName')]"
+            }
+          },
+          "cpuCores": {
+            "value": "[parameters('cpuCores')]"
+          },
+          "cpuCoresLimit": {
+            "value": "[parameters('cpuCoresLimit')]"
+          },
+          "dnsServers": {
+            "value": "[parameters('dnsServers')]"
+          },
+          "image": {
+            "value": "[parameters('image')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "memoryInGb": {
+            "value": "[parameters('memoryInGb')]"
+          },
+          "memoryInGbLimit": {
+            "value": "[parameters('memoryInGbLimit')]"
+          },
+          "name": {
+            "value": "[parameters('name')]"
+          },
+          "restartPolicy": {
+            "value": "[parameters('restartPolicy')]"
+          },
+          "subnetObject": {
+            "reference": {
+              "keyVault": {
+                "id": "[resourceId(parameters('keyVaultSubscription'), parameters('keyVaultResourceGroupName'), 'Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              },
+              "secretName": "[parameters('subnetObjectSecretName')]"
+            }
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        }
+      }
+    }
+  ]
+}

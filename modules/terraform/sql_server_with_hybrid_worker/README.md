@@ -1,0 +1,9 @@
+# SQL Server module
+The fork of SQL Server module that allows to deploy a SQL virtual machine preconfigured for MatrixCare's environments and with support for Hybrid Worker configuration.
+
+## Hybrid worker support
+This is the fork of /modules/terraform/sql_server module. 99% of the contents are basically the same. The difference is hybrid_worker and hybrid_worker_group usage which was added in [PR 27342](https://dev.azure.com/MatrixCareHHP/HH/_git/iac/pullrequest/27342). The reasons behind the decision to do a copy is described in the original module's README. Below is the explanation of the additions included in the copy.
+
+- hybrid_worker_group definition - creates a logical object in specified Azure Automation instance which is later used to scope the runbook execution.
+- hybrid_workder definition - deploys HybridWorker virtual machine extension which establishes the connectivity between the virtual machine and Azure Automation instance.
+- Currently the module is configured to require two variables: automation_account_resource, automation_account_credential_name. They are necessary for both hybrid_worker_group and hybrid_worker modules. This part of the code was one of the reasons for the split. During [PR 27342](https://dev.azure.com/MatrixCareHHP/HH/_git/iac/pullrequest/27342) development the standard Terraform version that was used in MatrixCare was 0.12.31. In this version modules do not support count meta-argument which is necessary for doing conditional deployments. There was no capacity for doing Terraform version updates at that time, hence the SQL Server module copy approach.

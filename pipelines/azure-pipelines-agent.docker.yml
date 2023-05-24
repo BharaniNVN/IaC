@@ -1,0 +1,57 @@
+name: $(SourceBranchName)_$(major).$(minor).$(rev:rrr)
+
+trigger:
+  batch: true
+  paths:
+    include:
+      - images/azurepipelinesagent/
+      - pipelines/azure-pipelines-agent.docker.yml
+      - pipelines/docker-deployment.template.yml
+      - pipelines/docker-image.template.yml
+
+pr: none
+
+variables:
+  major: 0
+  minor: 1
+  artifactName: drop
+  azureContainerRegistryFQDN: prodmxhhptfacr.azurecr.io
+  dockerImageName: 'iac/azurepipelinesagent'
+
+stages:
+  - template: docker-image.template.yml
+    parameters:
+      acrServiceConnection: ProdIACacr
+      artifactName: ${{ variables.artifactName }}
+      dockerfileFolder: 'images/azurepipelinesagent'
+      dockerImageName: ${{ variables.dockerImageName }}
+
+  - template: docker-deployment.template.yml
+    parameters:
+      environments:
+        - name: NonProd
+          armServiceConnection: 'Terraform Non-Prod'
+          aciContainerCount: 2
+          aciCPUCores: 0.5
+          aciCPUCoresLimit: 0.5
+          aciMemoryInGb: 1.0
+          aciMemoryInGbLimit: 1.0
+          azureDevOpsPoolName: HhpNonProd
+          azureKeyVaultName: NonprodTerraformKv
+          azureKeyVaultResourceGroupName: NonprodTerraform-rg
+          # dnsServers: '"10.105.128.165","10.105.128.166"' # uncomment once connection to NonProd onpremise network will be established
+
+        - name: Prod
+          armServiceConnection: 'Terraform Production'
+          aciContainerCount: 2
+          aciCPUCores: 0.5
+          aciCPUCoresLimit: 0.5
+          aciMemoryInGb: 1.0
+          aciMemoryInGbLimit: 1.0
+          azureDevOpsPoolName: HhpProduction
+          azureKeyVaultName: ProdTerraformKv
+          azureKeyVaultResourceGroupName: ProdTerraform-rg
+          # dnsServers: '"10.105.2.5","192.168.20.10"' # uncomment once connection to Prod onpremise network will be established
+
+      artifactName: ${{ variables.artifactName }}
+      azureContainerRegistryFQDN: ${{ variables.azureContainerRegistryFQDN }}

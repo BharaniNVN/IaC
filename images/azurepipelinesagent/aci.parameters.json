@@ -1,0 +1,56 @@
+{
+  "azureDevOpsPoolName": {
+    "value": "${azure_devops_pool_name}"
+  },
+  "azureDevOpsTokenSecretName": {
+    "value": "${azure_devops_token_secret_name}"
+  },
+  "azureDevOpsUrl": {
+    "value": "${azure_devops_url}"
+  },
+  "containerCount": {
+    "value": "${container_count}"
+  },
+  "containerNamePrefix": {
+    "value": "${container_name_prefix}"
+  },
+  "containerRegistryAccountSecretName": {
+    "value": "${container_registry_account_secret_name}"
+  },
+  "containerRegistryFQDN": {
+    "value": "${container_registry_fqdn}"
+  },
+  "containerRegistryPasswordSecretName": {
+    "value": "${container_registry_password_secret_name}"
+  },
+  "cpuCores": {
+    "value": "${cpu_cores}"
+  },
+  "cpuCoresLimit": {
+    "value": "${cpu_cores_limit}"
+  },
+  "dnsServers": {
+    "value": "${dns_servers}"
+  },
+  "image": {
+    "value": "${image}"
+  },
+  "keyVaultName": {
+    "value": "${key_vault_name}"
+  },
+  "keyVaultResourceGroupName": {
+    "value": "${key_vault_resource_group_name}"
+  },
+  "memoryInGb": {
+    "value": "${memory_in_gb}"
+  },
+  "memoryInGbLimit": {
+    "value": "${memory_in_gb_limit}"
+  },
+  "name": {
+    "value": "${name}"
+  },
+  "subnetObjectSecretName": {
+    "value": "${subnet_object_secret_name}"
+  }
+}

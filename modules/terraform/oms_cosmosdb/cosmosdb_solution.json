@@ -1,0 +1,420 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "String"
+        },
+        "resourcegroup": {
+            "type": "String"
+        },
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "variables": {
+        "omsSolutions": {
+            "customSolution": {
+                "name": "CosmosDB",
+                "solutionName": "[concat('CosmosDBAnalytics', '[', parameters('workspace'), ']')]",
+                "publisher": "Microsoft",
+                "displayName": "CosmosDB",
+                "description": "Identify and troubleshoot CosmosDB issues",
+                "author": "Microsoft"
+            }
+        },
+        "subscriptionId": "[subscription().subscriptionId]"
+    },
+    "resources": [
+        {
+            "apiVersion": "2020-03-01-preview",
+            "name": "[parameters('workspace')]",
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "location": "[parameters('location')]",
+            "id": "[Concat('/subscriptions/', variables('subscriptionId'), '/resourceGroups/', parameters('resourcegroup'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('workspace'))]",
+            "resources": [
+                {
+                    "apiVersion": "2020-03-01-preview",
+                    "name": "[variables('omsSolutions').customSolution.name]",
+                    "type": "views",
+                    "location": "[parameters('location')]",
+                    "id": "[Concat('/subscriptions/', variables('subscriptionId'), '/resourceGroups/', parameters('resourcegroup'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('workspace'),'/views/', variables('omsSolutions').customSolution.name)]",
+                    "dependsOn": [
+                        "[concat('/subscriptions/', variables('subscriptionId'), '/resourceGroups/', parameters('resourcegroup'), '/providers/Microsoft.OperationalInsights/workspaces/', parameters('workspace'))]"
+                    ],
+                    "properties": {
+                        "Id": "CosmosDB",
+                        "Name": "CosmosDB",
+                        "Author": null,
+                        "Source": "Local",
+                        "Version": 2,
+                        "Dashboard": [
+                            {
+                                "Id": "NumberTileListBuilderBlade",
+                                "Type": "Blade",
+                                "Version": 0,
+                                "Configuration": {
+                                    "General": {
+                                        "title": "The most expensive queries",
+                                        "newGroup": false,
+                                        "icon": "",
+                                        "useIcon": false
+                                    },
+                                    "Tile": {
+                                        "Legend": "Number of expensive queries",
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" and todouble(requestCharge_s) > 10.0 | project activityId_g, requestCharge_s, querytext_s | join kind= inner ( AzureDiagnostics | where ResourceProvider ==\"MICROSOFT.DOCUMENTDB\" and Category == \"QueryRuntimeStatistics\" | project activityId_g, requestCharge_s, querytext_s ) on $left.activityId_g == $right.activityId_g | distinct activityId_g, querytext_s1, requestCharge_s | limit 100 | count ",
+                                        "NavigationSelect": {
+                                        }
+                                    },
+                                    "List": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" and todouble(requestCharge_s) > 10.0 | project activityId_g, requestCharge_s, querytext_s | join kind= inner ( AzureDiagnostics | where ResourceProvider ==\"MICROSOFT.DOCUMENTDB\" and Category == \"QueryRuntimeStatistics\" | project activityId_g, requestCharge_s, querytext_s ) on $left.activityId_g == $right.activityId_g | distinct activityId_g, querytext_s1, todecimal(requestCharge_s) | order by requestCharge_s desc | limit 100",
+                                        "HideGraph": false,
+                                        "enableSparklines": false,
+                                        "ColumnsTitle": {
+                                            "Name": "Query",
+                                            "Value": "Charge"
+                                        },
+                                        "Color": "#0072c6",
+                                        "thresholds": {
+                                            "isEnabled": false,
+                                            "values": [
+                                                {
+                                                    "name": "Normal",
+                                                    "threshold": "Default",
+                                                    "color": "#009e49",
+                                                    "isDefault": true
+                                                },
+                                                {
+                                                    "name": "Warning",
+                                                    "threshold": "60",
+                                                    "color": "#fcd116",
+                                                    "isDefault": false
+                                                },
+                                                {
+                                                    "name": "Error",
+                                                    "threshold": "90",
+                                                    "color": "#ba141a",
+                                                    "isDefault": false
+                                                }
+                                            ]
+                                        },
+                                        "NameDSVSeparator": "",
+                                        "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" and todouble(requestCharge_s) > 10.0 | project activityId_g, requestCharge_s, querytext_s | join kind= inner ( AzureDiagnostics | where ResourceProvider ==\"MICROSOFT.DOCUMENTDB\" and Category == \"QueryRuntimeStatistics\" | project activityId_g, requestCharge_s, querytext_s ) on $left.activityId_g == $right.activityId_g | distinct activityId_g, querytext_s1, todecimal(requestCharge_s) | search {selected item} | order by requestCharge_s desc",
+                                        "NavigationSelect": {
+                                            "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" and todouble(requestCharge_s) > 10.0 | project activityId_g, requestCharge_s, querytext_s | join kind= inner ( AzureDiagnostics | where ResourceProvider ==\"MICROSOFT.DOCUMENTDB\" and Category == \"QueryRuntimeStatistics\" | project activityId_g, requestCharge_s, querytext_s ) on $left.activityId_g == $right.activityId_g | distinct activityId_g, querytext_s1, todecimal(requestCharge_s) | search {selected item} | order by requestCharge_s desc"
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "Id": "LineChartBuilderBlade",
+                                "Type": "Blade",
+                                "Version": 0,
+                                "Configuration": {
+                                    "General": {
+                                        "title": "Data type distribution",
+                                        "newGroup": false,
+                                        "icon": "",
+                                        "useIcon": false
+                                    },
+                                    "Header": {
+                                        "Title": "Data types over time",
+                                        "Subtitle": ""
+                                    },
+                                    "LineChart": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize max(requestCharge_s) by bin(TimeGenerated, 1h) | order by TimeGenerated asc nulls last | project TimeGenerated, todecimal(max_requestCharge_s)",
+                                        "yAxis": {
+                                            "isLogarithmic": false,
+                                            "units": {
+                                                "baseUnitType": "",
+                                                "baseUnit": "",
+                                                "displayUnit": ""
+                                            },
+                                            "customLabel": ""
+                                        },
+                                        "NavigationSelect": {
+                                        }
+                                    },
+                                    "List": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | sort by todecimal(requestCharge_s) desc nulls last | project TimeGenerated, activityId_g, requestResourceId_s, todecimal(requestCharge_s)",
+                                        "HideGraph": false,
+                                        "enableSparklines": false,
+                                        "ColumnsTitle": {
+                                            "Name": "Type",
+                                            "Value": "Count"
+                                        },
+                                        "Color": "#0072c6",
+                                        "thresholds": {
+                                            "isEnabled": false,
+                                            "values": [
+                                                {
+                                                    "name": "Normal",
+                                                    "threshold": "Default",
+                                                    "color": "#009e49",
+                                                    "isDefault": true
+                                                },
+                                                {
+                                                    "name": "Warning",
+                                                    "threshold": "60",
+                                                    "color": "#fcd116",
+                                                    "isDefault": false
+                                                },
+                                                {
+                                                    "name": "Error",
+                                                    "threshold": "90",
+                                                    "color": "#ba141a",
+                                                    "isDefault": false
+                                                }
+                                            ]
+                                        },
+                                        "NameDSVSeparator": "",
+                                        "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | search {selected item} | sort by todecimal(requestCharge_s) desc nulls last | project TimeGenerated, activityId_g, requestResourceId_s, statusCode_s, clientIpAddress_s, duration_d, todecimal(requestCharge_s)",
+                                        "NavigationSelect": {
+                                            "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | search {selected item} | sort by todecimal(requestCharge_s) desc nulls last | project TimeGenerated, activityId_g, requestResourceId_s, statusCode_s, clientIpAddress_s, duration_d, todecimal(requestCharge_s)"
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "Id": "SingleQueryDonutBuilderBladeV1",
+                                "Type": "Blade",
+                                "Version": 0,
+                                "Configuration": {
+                                    "General": {
+                                        "title": "Distribution by operation name",
+                                        "newGroup": false,
+                                        "icon": "",
+                                        "useIcon": false
+                                    },
+                                    "Header": {
+                                        "Title": "Number of operation types",
+                                        "Subtitle": ""
+                                    },
+                                    "Donut": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize count() by OperationName | sort by count_ desc nulls last",
+                                        "CenterLegend": {
+                                            "Text": "Total",
+                                            "Operation": "Sum",
+                                            "ArcsToSelect": [
+                                            ]
+                                        },
+                                        "Options": {
+                                            "colors": [
+                                                "#00188f",
+                                                "#0072c6",
+                                                "#00bcf2"
+                                            ],
+                                            "valueColorMapping": [
+                                            ]
+                                        },
+                                        "NavigationSelect": {
+                                        }
+                                    },
+                                    "List": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize count() by OperationName | sort by count_ desc nulls last",
+                                        "HideGraph": false,
+                                        "enableSparklines": false,
+                                        "operation": "Summary",
+                                        "ColumnsTitle": {
+                                            "Name": "Computer",
+                                            "Value": "Count"
+                                        },
+                                        "Color": "#0072c6",
+                                        "thresholds": {
+                                            "isEnabled": false,
+                                            "values": [
+                                                {
+                                                    "name": "Normal",
+                                                    "threshold": "Default",
+                                                    "color": "#009e49",
+                                                    "isDefault": true
+                                                },
+                                                {
+                                                    "name": "Warning",
+                                                    "threshold": "60",
+                                                    "color": "#fcd116",
+                                                    "isDefault": false
+                                                },
+                                                {
+                                                    "name": "Error",
+                                                    "threshold": "90",
+                                                    "color": "#ba141a",
+                                                    "isDefault": false
+                                                }
+                                            ]
+                                        },
+                                        "NameDSVSeparator": "",
+                                        "NavigationQuery": "search {selected item} | sort by TimeGenerated desc nulls last",
+                                        "NavigationSelect": {
+                                            "NavigationQuery": "search {selected item} | sort by TimeGenerated desc nulls last"
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "Id": "NumberTileListBuilderBlade",
+                                "Type": "Blade",
+                                "Version": 0,
+                                "Configuration": {
+                                    "General": {
+                                        "title": "Operation taking most RU's",
+                                        "newGroup": false,
+                                        "icon": "",
+                                        "useIcon": false
+                                    },
+                                    "Tile": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize max(responseLength_s), max(requestLength_s), max(requestCharge_s), count = count() by OperationName, requestResourceType_s, userAgent_s, collectionRid_s, bin(TimeGenerated, 1h) | sort by todecimal(max_requestLength_s) desc nulls last | take 1 | project max_requestLength_s",
+                                        "Legend": "The longest query",
+                                        "NavigationSelect": {
+                                        }
+                                    },
+                                    "List": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize max(responseLength_s), max(requestLength_s), max(requestCharge_s), count = count() by OperationName, requestResourceType_s, userAgent_s, collectionRid_s, bin(TimeGenerated, 1h) | project userAgent_s, todecimal(max_requestLength_s) | sort by max_requestLength_s desc nulls last",
+                                        "HideGraph": false,
+                                        "enableSparklines": false,
+                                        "operation": "Summary",
+                                        "ColumnsTitle": {
+                                            "Name": "useragent_s",
+                                            "Value": "max_requestlength_s"
+                                        },
+                                        "Color": "#0072c6",
+                                        "thresholds": {
+                                            "isEnabled": false,
+                                            "values": [
+                                                {
+                                                    "name": "Normal",
+                                                    "threshold": "Default",
+                                                    "color": "#009e49",
+                                                    "isDefault": true
+                                                },
+                                                {
+                                                    "name": "Warning",
+                                                    "threshold": "60",
+                                                    "color": "#fcd116",
+                                                    "isDefault": false
+                                                },
+                                                {
+                                                    "name": "Error",
+                                                    "threshold": "90",
+                                                    "color": "#ba141a",
+                                                    "isDefault": false
+                                                }
+                                            ]
+                                        },
+                                        "NameDSVSeparator": "",
+                                        "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize max(responseLength_s), max(requestLength_s), max(requestCharge_s), count = count() by OperationName, requestResourceType_s, userAgent_s, collectionRid_s, bin(TimeGenerated, 1h) | search {selected item} | sort by todecimal(max_requestLength_s) desc nulls last",
+                                        "NavigationSelect": {
+                                            "NavigationQuery": "AzureDiagnostics | where ResourceProvider==\"MICROSOFT.DOCUMENTDB\" and Category==\"DataPlaneRequests\" | summarize max(responseLength_s), max(requestLength_s), max(requestCharge_s), count = count() by OperationName, requestResourceType_s, userAgent_s, collectionRid_s, bin(TimeGenerated, 1h) | search {selected item} | sort by todecimal(max_requestLength_s) desc nulls last"
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "Id": "NumberTileListBuilderBlade",
+                                "Type": "Blade",
+                                "Version": 0,
+                                "Configuration": {
+                                    "General": {
+                                        "title": "the top partition keys with most RU/s consumed",
+                                        "newGroup": false,
+                                        "icon": "",
+                                        "useIcon": false
+                                    },
+                                    "Tile": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider == \"MICROSOFT.DOCUMENTDB\" and Category == \"PartitionKeyRUConsumption\" | summarize total = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s, partitionKey_s | count",
+                                        "Legend": "A number of filtered partition keys",
+                                        "NavigationSelect": {
+                                        }
+                                    },
+                                    "List": {
+                                        "Query": "AzureDiagnostics | where ResourceProvider == \"MICROSOFT.DOCUMENTDB\" and Category == \"PartitionKeyRUConsumption\" | extend PartitionKey = substring(partitionKey_s,6,36) | summarize total = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s, PartitionKey | project databaseName_s, collectionName_s, PartitionKey, round(total,0) | sort by total desc nulls last",
+                                        "HideGraph": false,
+                                        "enableSparklines": false,
+                                        "operation": "Summary",
+                                        "ColumnsTitle": {
+                                            "Name": "Database",
+                                            "Value": "Requestcharge"
+                                        },
+                                        "Color": "#0072c6",
+                                        "thresholds": {
+                                            "isEnabled": false,
+                                            "values": [
+                                                {
+                                                    "name": "Normal",
+                                                    "threshold": "Default",
+                                                    "color": "#009e49",
+                                                    "isDefault": true
+                                                },
+                                                {
+                                                    "name": "Warning",
+                                                    "threshold": "60",
+                                                    "color": "#fcd116",
+                                                    "isDefault": false
+                                                },
+                                                {
+                                                    "name": "Error",
+                                                    "threshold": "90",
+                                                    "color": "#ba141a",
+                                                    "isDefault": false
+                                                }
+                                            ]
+                                        },
+                                        "NameDSVSeparator": "",
+                                        "NavigationQuery": "AzureDiagnostics | where ResourceProvider == \"MICROSOFT.DOCUMENTDB\" and Category == \"PartitionKeyRUConsumption\" | extend PartitionKey = substring(partitionKey_s,6,36) | summarize total = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s, PartitionKey | project databaseName_s, collectionName_s, PartitionKey, round(total,0) | search {selected item}",
+                                        "NavigationSelect": {
+                                            "NavigationQuery": "AzureDiagnostics | where ResourceProvider == \"MICROSOFT.DOCUMENTDB\" and Category == \"PartitionKeyRUConsumption\" | extend PartitionKey = substring(partitionKey_s,6,36) | summarize total = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s, PartitionKey | project databaseName_s, collectionName_s, PartitionKey, round(total,0) | search {selected item}"
+                                        }
+                                    }
+                                }
+                            }
+                        ],
+                        "Filters": [
+                        ],
+                        "OverviewTile": {
+                            "Id": "SingleNumberBuilderTile",
+                            "Type": "OverviewTile",
+                            "Version": 2,
+                            "Configuration": {
+                                "Tile": {
+                                    "Legend": "CosmosDB collections",
+                                    "Query": "AzureDiagnostics | where requestResourceType_s == \"Collection\" | distinct Resource | count"
+                                },
+                                "Advanced": {
+                                    "DataFlowVerification": {
+                                        "Enabled": false,
+                                        "Query": "search * | limit 1 | project TimeGenerated",
+                                        "Message": ""
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "[variables('omsSolutions').customSolution.solutionName]",
+                    "type": "Microsoft.OperationsManagement/solutions",
+                    "apiVersion": "2015-11-01-preview",
+                    "location": "[parameters('location')]",
+                    "dependsOn": [
+                        "[concat('Microsoft.OperationalInsights/workspaces/', parameters('workspace'))]",
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/views', parameters('workspace'), variables('omsSolutions').customSolution.Name)]"
+                    ],
+                    "plan": {
+                        "name": "[variables('omsSolutions').customSolution.solutionName]",
+                        "product": "[variables('omsSolutions').customSolution.name]",
+                        "publisher": "[variables('omsSolutions').customSolution.publisher]",
+                        "promotionCode": ""
+                    },
+                    "properties": {
+                        "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces/', parameters('workspace'))]",
+                        "referencedResources": [
+                        ],
+                        "containedResources": [
+                            "[resourceId('Microsoft.OperationalInsights/workspaces/views/', parameters('workspace'), variables('omsSolutions').customSolution.name)]"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

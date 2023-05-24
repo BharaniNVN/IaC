@@ -1,0 +1,29 @@
+[ClassVersion("1.0.0")]
+class MSFT_SqlRSSSLBindingInformation
+{
+    [Required] String CertificateHash;
+    [Write] String IPAddress;
+    [Write] UInt16 Port;
+};
+
+[ClassVersion("1.0.0.0"), FriendlyName("SqlRS")]
+class MSFT_SqlRS : OMI_BaseResource
+{
+    [Key, Description("Name of the SQL Server Reporting Services instance to be configured.")] String InstanceName;
+    [Required, Description("Name of the SQL Server to host the Reporting Service database.")] String DatabaseServerName;
+    [Required, Description("Name of the SQL Server instance to host the Reporting Service database.")] String DatabaseInstanceName;
+    [Write, Description("Report Server Web Service virtual directory. Optional.")] String ReportServerVirtualDirectory;
+    [Write, Description("Report Manager/Report Web App virtual directory name. Optional.")] String ReportsVirtualDirectory;
+    [Write, EmbeddedInstance("MSFT_SqlRSSSLBindingInformation"), Description("Report Server SSL binding information in the form of an array of embedded instances of the MSFT_SqlRSSSLBindingInformation CIM class.")] String ReportServerSSLBindingInfo[];
+    [Write, Description("Report Server URL reservations. Optional. If not specified, 'http://+:80' URL reservation will be used.")] String ReportServerReservedUrl[];
+    [Write, Description("Report Manager/Report Web App URL reservations. Optional. If not specified, 'http://+:80' URL reservation will be used.")] String ReportsReservedUrl[];
+    [Write, EmbeddedInstance("MSFT_SqlRSSSLBindingInformation"), Description("Report Manager/Report Web App SSL binding information in the form of an array of embedded instances of the MSFT_SqlRSSSLBindingInformation CIM class.")] String ReportsSSLBindingInfo[];
+    [Write, Description("If connections to the Reporting Services must use SSL. If this parameter is not assigned a value, the default is that Reporting Services does not use SSL.")] Boolean UseSsl;
+    [Write, Description("Reporting Services need to be restarted after initialization or settings change. If this parameter is set to $true, Reporting Services will not be restarted, even after initialisation.")] Boolean SuppressRestart;
+    [Write, EmbeddedInstance("MSFT_Credential"), Description("Service account for the SQL Server Reporting Services service.")] String SvcAccount;
+    [Write, Description("Type of service account used to connect to SQL Server hosting Reporting Service database. Defaults to 'WindowsService'"), ValueMap{"Windows", "SQLServer", "WindowsService"}, Values{"Windows", "SQLServer", "WindowsService"}] String DatabaseLogonAccountType;
+    [Write, EmbeddedInstance("MSFT_Credential"), Description("Service account used to connect to SQL Server hosting Reporting Service database.")] String DatabaseLogonAccount;
+    [Read, Description("Is the Reporting Services instance initialized.")] Boolean IsInitialized;
+    [Read, Description("Output username for the SQL Server Reporting Services service.")] String SvcAccountUsername;
+    [Read, Description("Output username for the service account used to connect to SQL Server hosting Reporting Service database.")] String DatabaseServerAccountUsername;
+};
